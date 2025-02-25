@@ -5,6 +5,11 @@ import sharp from 'sharp';
 import { PDFDocument } from 'pdf-lib';
 import { readFile, writeFile } from 'fs/promises';
 
+/**
+ * Configuration for the browser viewport
+ * You can modify these values to change the resolution of the captured screenshots
+ * Higher values will result in larger, more detailed PDFs but may consume more memory
+ */
 const VIEWPORT_CONFIG = {
   width: 1920,
   height: 1080,
@@ -14,6 +19,11 @@ const VIEWPORT_CONFIG = {
   isLandscape: true
 };
 
+/**
+ * Configuration for the headless Chrome browser
+ * These settings ensure stable operation across different environments
+ * Add additional arguments here if you need to customize browser behavior
+ */
 const BROWSER_CONFIG = {
   headless: "new",
   args: [
@@ -24,24 +34,42 @@ const BROWSER_CONFIG = {
   ]
 };
 
+/**
+ * User agent string to mimic a standard desktop browser
+ * Change this if you need to emulate a different browser or device
+ */
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+/**
+ * Helper function to create a delay
+ * @param {number} ms - Milliseconds to delay
+ */
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Extracts the domain from a URL and formats it for use in filenames
+ * @param {string} url - The URL to process
+ * @returns {string} - Formatted domain name with dots replaced by underscores
+ */
 function getDomainFromUrl(url) {
   try {
     const domain = new URL(url).hostname.replace('www.', '');
-    return domain.replace(/\./g, '_'); // Capturar el dominio completo y reemplazar los . por _
+    return domain.replace(/\./g, '_'); // Capture the full domain and replace dots with underscores
   } catch {
     return 'unknown';
   }
 }
 
+/**
+ * Sets up the browser page with necessary configurations
+ * @param {Page} page - Puppeteer page object
+ */
 async function setupPage(page) {
   await page.setUserAgent(USER_AGENT);
   await page.setViewport(VIEWPORT_CONFIG);
 
-  // Capturar TODOS los logs del navegador
+  // Uncomment to capture ALL browser logs
+  // This is useful for debugging issues with specific websites
   // page.on('console', msg => {
   //   const type = msg.type();
   //   switch (type) {
@@ -59,20 +87,17 @@ async function setupPage(page) {
   //   }
   // });
 
-  // CSS más específico basado en el DOM actual
+  // Add custom CSS to hide cookie popups and other intrusive elements
+  // You can modify these selectors to target specific elements on websites you're converting
   await page.addStyleTag({
     content: `
-      /* Selectores específicos del popup de cookies */
+      /* Specific selectors for cookie popups and overlays */
       .dialog-message.dialog-lightbox-message,
-      .elementor-1777,
-      [data-elementor-id="1777"],
-      [data-elementor-id="3201"],
       [data-elementor-type="popup"],
       .elementor-location-popup,
       .elementor-popup-modal,
       [data-elementor-settings*="page_load"],
       [data-elementor-post-type="elementor_library"],
-      .elementor-section-content-middle[data-id="19c02f2b"],
       div[class*="elementor-popup"],
       div[class*="dialog-lightbox"],
       div[class*="dialog-message"] {
@@ -92,7 +117,7 @@ async function setupPage(page) {
         overflow: hidden !important;
       }
 
-      /* Prevenir scroll lock y overlay */
+      /* Prevent scroll lock and overlay */
       body {
         overflow: auto !important;
         position: static !important;
@@ -100,21 +125,19 @@ async function setupPage(page) {
     `
   });
 
-  // Remover elementos usando JavaScript
+  // Remove elements using JavaScript
+  // This provides a more dynamic approach to removing popups that might appear after page load
   await page.evaluate(() => {
     function removePopups() {
-      console.log('🔍 Buscando popups para remover...');
+      console.log('🔍 Looking for popups to remove...');
       
+      // Add or modify these selectors to target specific elements on websites you're converting
       const selectors = [
         '.dialog-message.dialog-lightbox-message',
-        '.elementor-1777',
-        '[data-elementor-id="1777"]',
-        '[data-elementor-id="3201"]',
         '[data-elementor-type="popup"]',
         '.elementor-location-popup',
         '[data-elementor-settings*="page_load"]',
         '[data-elementor-post-type="elementor_library"]',
-        '.elementor-section-content-middle[data-id="19c02f2b"]',
         'div[class*="elementor-popup"]',
         'div[class*="dialog-lightbox"]',
         'div[class*="dialog-message"]'
@@ -123,74 +146,85 @@ async function setupPage(page) {
       selectors.forEach(selector => {
         const elements = document.querySelectorAll(selector);
         if (elements.length > 0) {
-          console.log(`🗑️ Encontrados ${elements.length} elementos con selector: ${selector}`);
+          console.log(`🗑️ Found ${elements.length} elements with selector: ${selector}`);
           elements.forEach(el => {
-            console.log(`   - Removiendo: ${el.className}`);
+            console.log(`   - Removing: ${el.className}`);
             el.remove();
           });
         }
       });
 
-      // Limpiar atributos del body
+      // Clean up body attributes
       document.body.style.overflow = 'auto';
       document.body.style.position = 'static';
       document.body.classList.remove('elementor-popup-modal');
       document.body.classList.remove('dialog-prevent-scroll');
     }
 
-    // Ejecutar inmediatamente
-    console.log('🚀 Primera ejecución de removePopups');
+    // Execute immediately
+    console.log('🚀 First execution of removePopups');
     removePopups();
 
-    // Observer con logs
-    console.log('👀 Iniciando observer...');
+    // Set up observer with logs
+    console.log('👀 Starting observer...');
     const observer = new MutationObserver((mutations) => {
-      console.log(`🔄 Observer detectó ${mutations.length} cambios`);
+      console.log(`🔄 Observer detected ${mutations.length} changes`);
       mutations.forEach(mutation => {
-        console.log(`   - Tipo de cambio: ${mutation.type}`);
+        console.log(`   - Change type: ${mutation.type}`);
         if (mutation.addedNodes.length) {
-          console.log(`   - Nodos añadidos: ${mutation.addedNodes.length}`);
+          console.log(`   - Nodes added: ${mutation.addedNodes.length}`);
         }
       });
       removePopups();
     });
 
+    // Configure the observer to watch for DOM changes
+    // This ensures popups that appear after initial page load are also removed
     observer.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
       attributeFilter: ['class', 'style']
     });
-    console.log('✅ Observer configurado y activo');
+    console.log('✅ Observer configured and active');
   });
 }
 
+/**
+ * Captures a full-page screenshot of the given URL
+ * @param {Page} page - Puppeteer page object
+ * @param {string} url - URL to capture
+ * @param {string} outputPath - Path to save the screenshot
+ * @returns {boolean} - Success status
+ */
 async function captureScreenshot(page, url, outputPath) {
   try {
     console.log('Navigating to URL...');
     
+    // Set longer timeouts for complex pages
     await page.setDefaultNavigationTimeout(60000);
     await page.setDefaultTimeout(60000);
 
+    // Navigate to the URL with multiple wait conditions
     await page.goto(url, {
       waitUntil: ['networkidle2', 'domcontentloaded', 'load'],
       timeout: 50000
     });
 
-    // Esperar a que todo el contenido esté cargado
+    // Wait for all content to be fully loaded
     console.log('Waiting for content to be fully loaded...');
     await page.evaluate(() => {
       return new Promise((resolve) => {
         const checkContent = () => {
-          // Verificar imágenes
+          // Check images
           const images = Array.from(document.images);
           const allImagesLoaded = images.every(img => img.complete);
           
-          // Verificar contenido principal
+          // Check main content
           const main = document.querySelector('main, #main, .main, article, .content');
           const hasContent = main && main.offsetHeight > 0;
           
-          // Verificar header
+          // Check header
           const header = document.querySelector('header');
           const headerLoaded = header && header.offsetHeight > 0;
 
@@ -213,7 +247,8 @@ async function captureScreenshot(page, url, outputPath) {
             attributes: true
           });
 
-          // Timeout de seguridad más largo
+          // Longer safety timeout
+          // Increase this value for complex pages that take longer to load
           setTimeout(() => {
             observer.disconnect();
             resolve();
@@ -222,20 +257,22 @@ async function captureScreenshot(page, url, outputPath) {
       });
     });
 
-    // Esperar un momento adicional
+    // Additional delay to ensure everything is rendered
+    // Adjust this value if you notice incomplete page rendering
     await delay(3000);
 
-    // Remover popup y preparar para captura
+    // Remove popup and prepare for capture
     console.log('Preparing for screenshot...');
     await page.evaluate(() => {
-      // Remover popup
+      // Remove popup
       const popup = document.querySelector('.dialog-message.dialog-lightbox-message');
       if (popup) popup.remove();
       
-      // Asegurar scroll al inicio
+      // Ensure scroll to top
       window.scrollTo(0, 0);
       
-      // Asegurar que el header esté bien posicionado
+      // Ensure header is properly positioned
+      // Modify this if you need different header behavior
       const header = document.querySelector('header');
       if (header) {
         header.style.position = 'fixed';
@@ -245,14 +282,14 @@ async function captureScreenshot(page, url, outputPath) {
         header.style.zIndex = '1000';
       }
 
-      // Desbloquear scroll
+      // Unlock scroll
       document.body.style.overflow = 'visible';
       document.body.style.position = 'static';
       document.documentElement.style.overflow = 'visible';
       document.documentElement.style.position = 'static';
     });
 
-    // Esperar un momento para que el scroll se estabilice
+    // Wait for scroll to stabilize
     await delay(1000);
 
     console.log('Taking screenshot...');
@@ -269,24 +306,31 @@ async function captureScreenshot(page, url, outputPath) {
   }
 }
 
+/**
+ * Converts a PNG screenshot to a PDF document
+ * @param {string} imagePath - Path to the PNG image
+ * @param {string} pdfPath - Path to save the PDF
+ * @returns {boolean} - Success status
+ */
 async function convertToPDF(imagePath, pdfPath) {
   try {
-    // Leer la imagen PNG
+    // Read the PNG image
     const imageBytes = await readFile(imagePath);
     
-    // Crear nuevo documento PDF
+    // Create new PDF document
     const pdfDoc = await PDFDocument.create();
     
-    // Cargar la imagen PNG
+    // Load the PNG image
     const image = await pdfDoc.embedPng(imageBytes);
     
-    // Obtener dimensiones de la imagen
+    // Get image dimensions
     const { width, height } = image.scale(1);
     
-    // Crear página con las dimensiones de la imagen
+    // Create page with image dimensions
+    // You can modify this to use standard page sizes like A4 instead
     const page = pdfDoc.addPage([width, height]);
     
-    // Dibujar la imagen en la página
+    // Draw the image on the page
     page.drawImage(image, {
       x: 0,
       y: 0,
@@ -294,7 +338,7 @@ async function convertToPDF(imagePath, pdfPath) {
       height: height
     });
 
-    // Guardar el PDF
+    // Save the PDF
     const pdfBytes = await pdfDoc.save();
     await writeFile(pdfPath, pdfBytes);
 
@@ -305,6 +349,10 @@ async function convertToPDF(imagePath, pdfPath) {
   }
 }
 
+/**
+ * Generates a timestamp string for file naming
+ * @returns {string} - Formatted timestamp
+ */
 function getTimestamp() {
   const now = new Date();
   return now.toISOString()
@@ -313,21 +361,31 @@ function getTimestamp() {
     .slice(0, -5);
 }
 
+/**
+ * Main function to generate PDFs from a list of URLs
+ * @param {string[]} urls - Array of URLs to process
+ * @param {Object} options - Configuration options
+ * @returns {Object} - Result containing file paths and output directory
+ */
 export async function generatePDF(urls, options = {}) {
   const timestamp = getTimestamp();
-  const domain = getDomainFromUrl(urls[0]); // Obtener dominio de la primera URL
+  const domain = getDomainFromUrl(urls[0]); // Get domain from the first URL
   const outputDir = path.join('output', `${domain}_${timestamp}`);
   const pdfsDir = path.join(outputDir, 'pdfs');
   const screenshotsDir = path.join(outputDir, 'screenshots');
 
+  // Create output directories
   await mkdir(pdfsDir, { recursive: true });
   await mkdir(screenshotsDir, { recursive: true });
   console.log(`Created output directories in: ${outputDir}`);
 
+  // Launch browser
   const browser = await puppeteer.launch(BROWSER_CONFIG);
   const pdfFiles = [];
 
   try {
+    // Process each URL sequentially
+    // To implement parallel processing, you could use Promise.all with a limited batch size
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       console.log(`\nProcessing (${i + 1}/${urls.length}): ${url}`);
@@ -337,7 +395,7 @@ export async function generatePDF(urls, options = {}) {
       try {
         await setupPage(page);
 
-        // Capturar screenshot
+        // Capture screenshot
         const screenshotPath = path.join(screenshotsDir, `page-${i + 1}.png`);
         const pdfPath = path.join(pdfsDir, `page-${i + 1}.pdf`);
 
@@ -359,6 +417,8 @@ export async function generatePDF(urls, options = {}) {
         await page.close();
       }
 
+      // Delay between processing URLs to avoid overloading the system
+      // Adjust this value based on your system's capabilities
       await delay(2000);
     }
 
