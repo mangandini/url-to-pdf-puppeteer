@@ -1,0 +1,15 @@
+{
+  "name": "url-to-pdf",
+  "version": "1.0.0",
+  "description": "Tool to convert multiple URLs to PDF and combine them into a single document",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "puppeteer": "^23.5.1",
+    "sharp": "^0.33.5"
+  }
+}
