@@ -94,6 +94,30 @@ The tool uses a preconfigured Chrome browser with:
 - Desktop user agent
 - Custom CSS to remove annoying cookie popups and overlays
 
+### Popup and Overlay Removal
+
+1. **Custom CSS Injection**: Automatically injects CSS that targets common popup selectors and hides them using multiple CSS properties to ensure they don't appear in the final PDF.
+
+2. **JavaScript DOM Manipulation**: Uses JavaScript to:
+   - Actively remove popup elements from the DOM
+   - Reset body overflow and position properties to prevent scroll locking
+   - Remove classes that might trigger modal behaviors
+
+3. **MutationObserver**: Implements a dynamic observer that:
+   - Watches for DOM changes during page load
+   - Automatically removes popups that appear after initial page load
+   - Continuously monitors for new elements that match popup selectors
+
+#### Customizing Element Removal
+
+You can modify the popup removal behavior by editing the selectors in `pdfGenerator.js`:
+
+- To target additional elements, add your selectors to the `selectors` array in the `removePopups()` function
+- To modify the CSS hiding behavior, edit the CSS content in the `page.addStyleTag()` call
+- To disable this feature entirely, comment out the relevant sections in the `setupPage()` function
+
+This feature is particularly useful when converting pages with cookie consent notices, newsletter signups, or other modal dialogs that would otherwise appear in your PDFs.
+
 ### PDF Generation Process
 
 1. **URL Loading**: Each URL is loaded in a headless Chrome instance
@@ -144,4 +168,7 @@ A: Ensure all URLs are valid and publicly accessible. Check that you have a stab
 A: Some websites may have anti-scraping measures or require JavaScript interactions. Try adding wait times or specific selectors in the code.
 
 **Q: Process takes too long**  
-A: The tool processes URLs sequentially. For many URLs, consider running multiple instances with different input files. 
+A: The tool processes URLs sequentially. For many URLs, consider running multiple instances with different input files.
+
+**Q: Cookie popups or other overlays still appear in PDFs**  
+A: Edit the selectors in `pdfGenerator.js` to target the specific elements on the problematic websites. Look for unique class names or data attributes in the site's HTML and add them to the selectors array. 
